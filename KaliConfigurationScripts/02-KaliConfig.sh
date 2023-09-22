@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#!/bin/bash
+
 # Check if the script is being run with sudo
 if [ "$EUID" -ne 0 ]; then
   echo "Please run this script with sudo."
@@ -14,6 +16,12 @@ desktop_dir="/home/$(logname)/Escritorio"
 
 # Get the current username
 current_user=$(logname)
+
+# Check if the shared folder is already mounted
+if mount | grep -q "$mount_point"; then
+  echo "Carpeta compartida ya está montada. No se realizará ningún procedimiento adicional."
+else
+
 
 # Check if the "netusers" group already exists
 if grep -q "^netusers:" /etc/group; then
@@ -71,3 +79,59 @@ if [ $? -eq 0 ]; then
 else
   echo "Error al montar la carpeta compartida."
 fi
+
+fi
+
+
+
+# Define the path to your OpenVPN configuration file
+ovpn_config="$HOME/Escritorio/ConfigFiles/osvaldohdzm.ovpn"
+
+# Check if OpenVPN is installed
+if ! [ -x "$(command -v openvpn)" ]; then
+    echo "Error: OpenVPN is not installed. Please install it first."
+fi
+
+# Check if the configuration file exists
+if [ ! -f "$ovpn_config" ]; then
+    echo "Error: OpenVPN configuration file not found: $ovpn_config"
+fi
+
+# Connect to the VPN using the specified configuration file
+#openvpn --config "$ovpn_config"
+
+#ntpdate pool.ntp.org
+
+# Define variables
+SERVICE_FILE="/etc/systemd/system/x11vnc.service"
+PASSWORD_FILE="/home/ozzy/.vnc/passwd"
+
+# Create the systemd service unit file
+cat <<EOL > "$SERVICE_FILE"
+[Unit]
+Description=X11VNC Server
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/x11vnc -auth guess -forever -loop -noxdamage -rfbauth "$PASSWORD_FILE" -rfbport 5900 -shared
+ExecStop=/usr/bin/killall x11vnc
+Restart=always
+User=$current_user
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+# Reload systemd and enable the service
+systemctl daemon-reload
+systemctl enable x11vnc.service
+
+# Start the x11vnc service
+systemctl start x11vnc.service
+
+# Check the status of the service
+systemctl status x11vnc.service
+
+
+

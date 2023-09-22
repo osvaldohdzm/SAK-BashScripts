@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Define el modo de resolución deseado
+resolution_mode="1280x720_60.00" # Tu valor de resolución
+value="74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync" 
+
+
+# Define la ubicación del archivo de configuración de la resolución de pantalla
+config_file="/etc/X11/xorg.conf.d/10-monitor.conf"
+
+# Comprueba si el archivo de configuración existe y borra su contenido si es así
+if [ -f "$config_file" ]; then
+  rm "$config_file"
+fi
+
+# Escribe el nuevo contenido en el archivo de configuración
+cat <<EOF2 > "$config_file"
+Section "Monitor"
+  Identifier  "Monitor0"
+  Modeline    "$resolution_mode" 74.50  1280 1344 1472 1664  720 723 728 748 -hsync +vsync
+  Option      "PreferredMode" "$resolution_mode"
+EndSection
+EOF2
+
+# Verifica si el modo ya existe en xrandr; si no, créalo
+if ! xrandr | grep "$resolution_mode" >/dev/null; then
+  echo "Creando nuevo modo de resolución..."
+  xrandr --newmode "$resolution_mode" $value
+fi
+
+# Imprime un mensaje informativo
+echo "Modo de resolución: $resolution_mode"
+
+# Agrega el modo a la salida VGA-1 si aún no está agregado
+if ! xrandr -q | grep "$resolution_mode" >/dev/null; then
+  xrandr --addmode VGA-1 "$resolution_mode"
+fi
+
+# Establece la resolución como predeterminada para la salida VGA-1
+xrandr --output VGA-1 --mode "$resolution_mode"
+
+# Reinicia el administrador de ventanas Compton (verifica si compton está en ejecución antes de detenerlo)
+if pgrep compton; then
+  pkill compton
+fi
+
+# Exporta la variable de entorno SESSION_MANAGER
+export SESSION_MANAGER=$(dbus-launch)
+
+# Ejecuta xfwm4 con compositor activado en segundo plano (verifica si xfwm4 ya está en ejecución antes de reemplazarlo)
+if ! pgrep xfwm4; then
+  nohup xfwm4 --replace --compositor=on >/dev/null 2>&1 &
+fi
+
+
+#xrandr --newmode "custom_mode" 74.50 1280 1344 1472 1664 720 723 728 748 -hsync +vsync
+#xrandr --addmode LVDS-1 custom_mode
+#xrandr --output LVDS-1 --mode custom_mode
